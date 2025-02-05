@@ -17,18 +17,6 @@ cd c2memo
 python3 servidor.py
 ```
 
-## 🛡 Perspectiva Blue Team
-
-- 📊 Monitorizar conexiones inusuales en puertos específicos.
-- 🚨 Implementar detección de tráfico anómalo.
-- 🔐 Asegurar endpoints con herramientas de protección EDR.
-
-## 🎭 Perspectiva Red Team
-
-- 🎯 Simulación de amenazas en entornos controlados.
-- 🏴‍☠️ Pruebas de persistencia en sistemas comprometidos.
-- 🔎 Evaluación de detección y respuesta de equipos defensivos.
-
 ## 🔮 Futuras mejoras
 
 - 🔑 Implementación de autenticación para bots para evitar la conexión de bots no autorizados o posibles investigadores.
