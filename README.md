@@ -12,9 +12,9 @@ Este es un servidor de Comando y Control (C2) desarrollado para fines educativos
 ## 🔧 Instalación
 
 ```bash
-git clone https://github.com/tuusuario/C2-Server.git
-cd C2-Server
-python3 c2_server.py
+git clone https://github.com/cybermemillo/c2memo.git
+cd c2memo
+python3 servidor.py
 ```
 
 ## 🛡 Perspectiva Blue Team
