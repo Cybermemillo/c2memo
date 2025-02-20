@@ -3,9 +3,37 @@ import subprocess
 import platform
 import os
 import ipaddress
+import requests
 
 HOST = "172.31.128.167"
 PORT = 9999
+
+def esEntornoCloud():
+    
+    """Indica si el programa se ejecuta en un entorno de cloud computing.
+
+    La función intenta conectarse a los puntos de metadata de AWS y Google Cloud
+    y devuelve True si alguno de ellos responde. Si no se logra conectar a
+    ninguno de ellos, se devuelve False.
+
+    Returns:
+        bool: True si se ejecuta en un entorno de cloud, False en caso contrario.
+    """
+    try:
+        # AWS Metadata
+        if requests.get("http://169.254.169.254/latest/meta-data/", timeout=1).status_code == 200:
+            return True
+    except requests.exceptions.RequestException:
+        pass
+
+    try:
+        # Google Cloud Metadata
+        if requests.get("http://metadata.google.internal/", timeout=1).status_code == 200:
+            return True
+    except requests.exceptions.RequestException:
+        pass
+
+    return False
 
 def es_red_privada(ip):
     """Indica si una IP es de una red privada o no.
@@ -252,6 +280,9 @@ def ejecutar_bot():
 
 if __name__ == "__main__":
     verificar_eula("cliente")
+    if esEntornoCloud():
+        print("[ERROR] No puedes ejecutar este programa en un servidor cloud.")
+        exit()
     if not es_red_privada(HOST):
         print("[ERROR] No puedes ejecutar este servidor fuera de una red privada.")
         exit()

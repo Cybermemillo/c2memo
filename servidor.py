@@ -3,6 +3,7 @@ import threading
 import time
 import os
 import ipaddress
+import requests
 
 HOST = "172.31.128.167" # IP del servidor
 PORT = 9999 # Puerto que escucha
@@ -11,7 +12,34 @@ bot_ids = {} # Diccinario con los IDS de los bots
 sistemas_operativos = {}  # Diccionario para almacenar el SO de cada bot
 respuestas_bots = {}  # Diccionario para almacenar las últimas respuestas de los bots
 
-def es_red_privada(ip):
+
+def detectarEntornoCloud():
+    """
+    Verifica si el programa se ejecuta en un entorno de cloud computing.
+    Si es así, el programa se cierra automáticamente.
+    """
+    try:
+        # AWS Metadata
+        if requests.get("http://169.254.169.254/latest/meta-data/", timeout=1).status_code == 200:
+            return True
+    except requests.exceptions.RequestException:
+        pass
+
+    try:
+        # Google Cloud Metadata
+        if requests.get("http://metadata.google.internal/", timeout=1).status_code == 200:
+            return True
+    except requests.exceptions.RequestException:
+        pass
+
+    return False
+
+# Verificar si estamos en un entorno cloud
+if detectarEntornoCloud():
+    print("[ERROR] No puedes ejecutar este programa en un servidor cloud.")
+    exit()
+    
+def esRedPrivada(ip):
     """Indica si una IP es de una red privada o no.
 
     La función intenta crear un objeto ipaddress.ip_address() con la IP dada y devuelve
@@ -29,7 +57,6 @@ def es_red_privada(ip):
         return ipaddress.ip_address(ip).is_private
     except ValueError:
         return False
-
 
 def verificar_eula(tipo):
     """
@@ -472,7 +499,7 @@ def cerrar_conexion_bots():
 
 if __name__ == "__main__":
     verificar_eula("servidor")
-    if not es_red_privada(HOST):
-        print("[ERROR] No puedes ejecutar este servidor fuera de una red privada.")
+    if not esRedPrivada(HOST):
+        input("[ERROR] No puedes ejecutar este servidor fuera de una red privada. Presione ENTER para cerrar.")
         exit()
     servidor_CnC()
