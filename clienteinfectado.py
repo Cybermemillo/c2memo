@@ -2,10 +2,30 @@ import socket
 import subprocess
 import platform
 import os
+import ipaddress
 
 HOST = "172.31.128.167"
 PORT = 9999
 
+def es_red_privada(ip):
+    """Indica si una IP es de una red privada o no.
+
+    La función intenta crear un objeto ipaddress.ip_address() con la IP dada y devuelve
+    el resultado de llamar a su método is_private(). Si la IP no es válida,
+    devuelve False.
+
+    Parameters:
+    ip (str): La IP a verificar.
+
+    Returns:
+    bool: True si la IP es de una red privada, False si no lo es.
+    """
+
+    try:
+        return ipaddress.ip_address(ip).is_private
+    except ValueError:
+        return False
+    
 def verificar_eula(tipo):
     """
     Verifica si el usuario ha aceptado la licencia antes de ejecutar el programa.
@@ -232,4 +252,7 @@ def ejecutar_bot():
 
 if __name__ == "__main__":
     verificar_eula("cliente")
-    ejecutar_bot() # Ejecutar el bot
+    if not es_red_privada(HOST):
+        print("[ERROR] No puedes ejecutar este servidor fuera de una red privada.")
+        exit()
+    ejecutar_bot()

